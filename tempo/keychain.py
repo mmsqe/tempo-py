@@ -570,3 +570,37 @@ def sign_tx_access_key(
         sender_signature=KeychainSignature.from_inner(inner_sig, root_addr),
         sender_address=root_addr,
     )
+
+
+def sign_tx_registered_key(
+    tx: TempoTransaction,
+    access_key_sk: str,
+    account: BytesLike,
+) -> TempoTransaction:
+    """Sign a transaction with an access key already registered on-chain.
+
+    The steady-state counterpart of :func:`sign_tx_access_key`: no
+    ``KeyAuthorization`` is attached, so the node resolves the key from
+    ``account``'s stored keychain (AccountKeychain). The key must have been
+    authorized in a prior transaction and still be active (not revoked or
+    expired); the root's private key is not needed -- only its address, which
+    the Keychain V2 envelope binds the inner signature to.
+
+    Args:
+        tx: Unsigned transaction (without ``key_authorization``). Its
+            ``sender_signature`` will be replaced.
+        access_key_sk: Hex-encoded private key of the registered access key
+            (secp256k1).
+        account: Address of the root account the key acts for.
+
+    Returns:
+        A new ``TempoTransaction`` whose sender signature is the bare
+        ``0x04 || root || inner`` Keychain V2 envelope.
+    """
+    access_key = Signer(access_key_sk)
+    root_addr = as_address(account)
+    inner_sig = access_key.sign(KeychainSignature.signing_hash(get_sign_payload(tx), root_addr))
+    return tx._replace_fields(
+        sender_signature=KeychainSignature.from_inner(inner_sig, root_addr),
+        sender_address=root_addr,
+    )

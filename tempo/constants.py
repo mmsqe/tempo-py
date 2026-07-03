@@ -23,6 +23,10 @@ RPC_URL_DEVNET = "https://rpc.devnet.tempo.xyz"
 DEFAULT_NONCE_KEY = 0
 DEFAULT_CHAIN_ID = CHAIN_ID_MAINNET
 
+# TIP-1009 expiring nonces: the reserved nonce key (uint256 max). A tx on this key
+# must carry nonce=0 and a valid_before within 30s; replay protection is hash-based.
+EXPIRING_NONCE_KEY = 2**256 - 1
+
 # ---------------------------------------------------------------------------
 # TIP-20 Token addresses (from StdTokens.sol)
 # ---------------------------------------------------------------------------

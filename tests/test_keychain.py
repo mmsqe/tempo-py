@@ -18,6 +18,7 @@ from tempo.keychain import (
     TokenLimit,
     build_keychain_signature,
     sign_tx_access_key,
+    sign_tx_registered_key,
 )
 from tempo.models import Signature
 from tempo.signer import recover_address
@@ -392,3 +393,23 @@ class TestSignTxAccessKey:
     def test_rejects_admin_with_restrictions(self):
         with pytest.raises(ValueError, match="admin"):
             sign_tx_access_key(_make_tx(), ACCESS_PK, Signer(ROOT_PK), expiry=1893456000)
+
+
+class TestSignTxRegisteredKey:
+    def test_bare_keychain_signature_without_authorization(self):
+        root, access = Signer(ROOT_PK), Signer(ACCESS_PK)
+        signed = sign_tx_registered_key(_make_tx(), ACCESS_PK, root.address)
+
+        # nothing is provisioned inline -- the node resolves the key from storage
+        assert signed.key_authorization is None
+
+        # sender signature is a bare Keychain V2 blob bound to the root account,
+        # whose inner recovers to the access key over the domain-separated hash
+        ks = signed.sender_signature
+        assert isinstance(ks, KeychainSignature)
+        assert ks.user_address == as_address(root.address)
+        effective = KeychainSignature.signing_hash(get_sign_payload(signed), root.address)
+        assert recover_address(effective, ks.inner_signature) == access.address
+
+        # verify_signature is keychain-aware and returns the root (tx sender)
+        assert verify_signature(signed) == root.address
